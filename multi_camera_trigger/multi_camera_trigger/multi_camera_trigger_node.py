@@ -163,13 +163,19 @@ class MultiCameraTriggerNode(Node):
                 # process incoming GPS callbacks
                 rclpy.spin_once(self, timeout_sec=0)
                 for entry in self.cameras:
-                    img = entry['cam'].GetNextImage(2000)
+                    # attempt to get next image with 1000ms (1s) timeout and exception handling
+                    try:
+                        img = entry['cam'].GetNextImage(1000)
+                    except PySpin.SpinnakerException as ex:
+                        self.get_logger().warn(f"{entry['serial']}: timeout waiting for image: {ex}")
+                        continue
+
                     if not img.IsIncomplete():
                         # record start time
                         t0 = time.perf_counter()
                         comp_str = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')[:-3]
                         t = self.get_clock().now().to_msg()
-                        ros_ts = f"{t.sec}.{t.nanosec:09d}"
+                        ros_ts = f"{t.sec}.{t.nanosec:09d}"  
                         ros_float = t.sec + t.nanosec * 1e-9
                         cd = img.GetChunkData()
                         cfid = cd.GetFrameID()
